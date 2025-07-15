@@ -9,4 +9,8 @@ dependencies = [
     "langchain-mcp-adapters>=0.0.9",
     "langgraph>=0.4.1",
     "python-dotenv>=1.1.0",
+    "flask>=3.0.0",
+    "flask-cors>=4.0.0",
+    "fastapi>=0.116.1",
+    "uvicorn>=0.34.2",
 ]
