@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assistant Nouveaux Arrivants - France</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+
+        .chat-container {
+            padding: 30px;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .response-area {
+            flex: 1;
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            min-height: 300px;
+            overflow-y: auto;
+            border: 2px solid #e9ecef;
+        }
+
+        .response-content {
+            line-height: 1.6;
+            color: #2c3e50;
+        }
+
+        .placeholder {
+            color: #6c757d;
+            font-style: italic;
+            text-align: center;
+            margin-top: 50px;
+        }
+
+        .input-area {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .input-field {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-field:focus {
+            border-color: #667eea;
+        }
+
+        .send-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            font-weight: 600;
+        }
+
+        .send-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .send-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            color: #667eea;
+            font-weight: 500;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #e9ecef;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .response-content h1, .response-content h2, .response-content h3 {
+            color: #2c3e50;
+            margin: 20px 0 10px 0;
+        }
+
+        .response-content ul, .response-content ol {
+            margin: 15px 0;
+            padding-left: 20px;
+        }
+
+        .response-content li {
+            margin: 5px 0;
+        }
+
+        .response-content strong {
+            color: #495057;
+        }
+
+        .response-content a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .response-content a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                margin: 10px;
+                border-radius: 15px;
+            }
+            
+            .header {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 24px;
+            }
+            
+            .chat-container {
+                padding: 20px;
+            }
+            
+            .input-area {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .input-field {
+                width: 100%;
+            }
+            
+            .send-button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🇫🇷 Assistant Nouveaux Arrivants</h1>
+            <p>Aide personnalisée pour s'installer en France</p>
+        </div>
+        
+        <div class="chat-container">
+            <div class="response-area" id="responseArea">
+                <div class="placeholder">
+                    👋 Bonjour ! Je suis votre assistant pour vous aider dans vos démarches en France.
+                    <br><br>
+                    Posez-moi vos questions sur :
+                    <br>🏥 Santé • 🏠 Logement • 📋 Administratif • ⚖️ Juridique • 💼 Emploi • 🎓 Éducation • 🚗 Transport • 💰 Finances
+                </div>
+            </div>
+            
+            <div class="input-area">
+                <input 
+                    type="text" 
+                    id="messageInput" 
+                    class="input-field" 
+                    placeholder="Tapez votre question ici..."
+                    onkeypress="handleKeyPress(event)"
+                >
+                <button onclick="sendMessage()" id="sendButton" class="send-button">
+                    Envoyer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        async function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const responseArea = document.getElementById('responseArea');
+            const sendButton = document.getElementById('sendButton');
+            
+            const message = messageInput.value.trim();
+            if (!message) return;
+            
+            // Désactiver le bouton et afficher le loading
+            sendButton.disabled = true;
+            sendButton.innerHTML = '<div class="spinner"></div> Traitement...';
+            
+            // Afficher le message de l'utilisateur
+            responseArea.innerHTML = `
+                <div style="margin-bottom: 20px; padding: 15px; background: #e3f2fd; border-radius: 10px; border-left: 4px solid #2196f3;">
+                    <strong>Votre question :</strong> ${message}
+                </div>
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Recherche d'informations en cours...
+                </div>
+            `;
+            
+            // Vider le champ de saisie
+            messageInput.value = '';
+            
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: message })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Afficher la réponse formatée
+                    responseArea.innerHTML = `
+                        <div style="margin-bottom: 20px; padding: 15px; background: #e3f2fd; border-radius: 10px; border-left: 4px solid #2196f3;">
+                            <strong>Votre question :</strong> ${message}
+                        </div>
+                        <div class="response-content">
+                            ${formatResponse(data.response)}
+                        </div>
+                    `;
+                } else {
+                    responseArea.innerHTML = `
+                        <div style="margin-bottom: 20px; padding: 15px; background: #e3f2fd; border-radius: 10px; border-left: 4px solid #2196f3;">
+                            <strong>Votre question :</strong> ${message}
+                        </div>
+                        <div style="color: #dc3545; padding: 20px; background: #f8d7da; border-radius: 10px;">
+                            ❌ Erreur : ${data.error || 'Une erreur est survenue'}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                responseArea.innerHTML = `
+                    <div style="margin-bottom: 20px; padding: 15px; background: #e3f2fd; border-radius: 10px; border-left: 4px solid #2196f3;">
+                        <strong>Votre question :</strong> ${message}
+                    </div>
+                    <div style="color: #dc3545; padding: 20px; background: #f8d7da; border-radius: 10px;">
+                        ❌ Erreur de connexion. Veuillez réessayer.
+                    </div>
+                `;
+            } finally {
+                // Réactiver le bouton
+                sendButton.disabled = false;
+                sendButton.innerHTML = 'Envoyer';
+                
+                // Scroll vers le bas
+                responseArea.scrollTop = responseArea.scrollHeight;
+            }
+        }
+
+        function formatResponse(response) {
+            // Convertir les retours à la ligne en <br>
+            let formatted = response.replace(/\n/g, '<br>');
+            
+            // Formater les titres avec **
+            formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            
+            // Formater les liens
+            formatted = formatted.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+            
+            // Formater les listes avec - ou •
+            formatted = formatted.replace(/^[-•]\s(.+)$/gm, '<li>$1</li>');
+            formatted = formatted.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+            
+            return formatted;
+        }
+    </script>
+</body>
+</html> 
