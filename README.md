@@ -95,6 +95,12 @@ uv run python test_api.py
 
 ## 🔧 Utilisation Programmatique
 
+### Version ligne de commande
+```bash
+# Utiliser l'assistant en mode CLI
+uv run python cli.py
+```
+
 ### Python
 ```python
 import requests
