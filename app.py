@@ -392,4 +392,5 @@ def internal_error(error):
 
 if __name__ == '__main__':
     logger.info("Démarrage de l'API Assistant Nouveaux Arrivants France")
-    app.run(debug=True, port=8080) 
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', debug=False, port=port) 
