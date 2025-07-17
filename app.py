@@ -180,6 +180,8 @@ async def get_agent_response(user_message, context=None):
                 return ai_message
                 
     except Exception as e:
+        import traceback
+        logger.error(f"Erreur dans get_agent_response: {str(e)}\n{traceback.format_exc()}")
         error_msg = str(e).lower()
         if "tokens" in error_msg or "context" in error_msg or "limit" in error_msg:
             logger.error(f"❌ Erreur de tokens: {str(e)}")
