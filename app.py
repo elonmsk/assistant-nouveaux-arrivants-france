@@ -35,7 +35,7 @@ server_params = StdioServerParameters(
         "BROWSER_AUTH": os.getenv("BROWSER_AUTH"),
         "WEB_UNLOCKER_ZONE": os.getenv("WEB_UNLOCKER_ZONE"),
     },
-    args=["@brightdata/mcp"],
+    args=["@brightdata/mcp@2.4.1"],
 )
 
 # Prompt système enrichi
@@ -147,37 +147,45 @@ async def get_agent_response(user_message, context=None):
         
         async with stdio_client(server_params) as (read, write):
             async with ClientSession(read, write) as session:
-                await session.initialize()
-                tools = await load_mcp_tools(session)
-                agent = create_react_agent(model, tools)
+                try:
+                    await session.initialize()
+                    tools = await load_mcp_tools(session)
+                    agent = create_react_agent(model, tools)
 
-                # Messages avec prompt système
-                messages = [
-                    {"role": "system", "content": SYSTEM_PROMPT}
-                ]
-                
-                # Ajouter le contexte si fourni
-                if context:
-                    messages.append({"role": "system", "content": f"Contexte supplémentaire : {context}"})
-                
-                messages.append({"role": "user", "content": user_message})
+                    # Messages avec prompt système
+                    messages = [
+                        {"role": "system", "content": SYSTEM_PROMPT}
+                    ]
+                    
+                    # Ajouter le contexte si fourni
+                    if context:
+                        messages.append({"role": "system", "content": f"Contexte supplémentaire : {context}"})
+                    
+                    messages.append({"role": "user", "content": user_message})
 
-                # Log de la taille approximative des tokens
-                total_chars = sum(len(msg["content"]) for msg in messages)
-                estimated_tokens = total_chars // 4  # Approximation : 4 chars = 1 token
-                logger.info(f"📊 Estimation tokens input: ~{estimated_tokens}")
+                    # Log de la taille approximative des tokens
+                    total_chars = sum(len(msg["content"]) for msg in messages)
+                    estimated_tokens = total_chars // 4  # Approximation : 4 chars = 1 token
+                    logger.info(f"📊 Estimation tokens input: ~{estimated_tokens}")
 
-                # Appel de l'agent
-                agent_response = await agent.ainvoke({"messages": messages})
-                
-                # Extraction de la réponse
-                ai_message = agent_response["messages"][-1].content
-                
-                # Log de la taille de la réponse
-                response_tokens = len(ai_message) // 4
-                logger.info(f"📊 Estimation tokens output: ~{response_tokens}")
-                
-                return ai_message
+                    # Appel de l'agent
+                    agent_response = await agent.ainvoke({"messages": messages})
+                    
+                    # Extraction de la réponse
+                    ai_message = agent_response["messages"][-1].content
+                    
+                    # Log de la taille de la réponse
+                    response_tokens = len(ai_message) // 4
+                    logger.info(f"📊 Estimation tokens output: ~{response_tokens}")
+                    
+                    return ai_message
+                    
+                except Exception as mcp_error:
+                    logger.error(f"Erreur MCP: {str(mcp_error)}")
+                    if "List roots not supported" in str(mcp_error):
+                        return "❌ Erreur de configuration MCP. Le serveur BrightData n'est pas compatible avec cette version. Veuillez contacter l'administrateur."
+                    else:
+                        raise mcp_error
                 
     except Exception as e:
         import traceback
@@ -189,6 +197,9 @@ async def get_agent_response(user_message, context=None):
         elif "rate" in error_msg or "529" in error_msg:
             logger.error(f"❌ Erreur de rate limiting: {str(e)}")
             return f"❌ Trop de requêtes simultanées. Veuillez patienter quelques secondes et réessayer.\n\nDétails: {str(e)}"
+        elif "mcp" in error_msg or "brightdata" in error_msg:
+            logger.error(f"❌ Erreur MCP/BrightData: {str(e)}")
+            return f"❌ Erreur de configuration des outils de recherche web. Veuillez réessayer dans quelques instants.\n\nDétails: {str(e)}"
         else:
             logger.error(f"Erreur dans get_agent_response: {str(e)}")
             return f"❌ Erreur lors du traitement de votre demande : {str(e)}\n\nVeuillez vérifier que vos clés API sont correctement configurées dans le fichier .env"
@@ -394,5 +405,20 @@ def internal_error(error):
 
 if __name__ == '__main__':
     logger.info("Démarrage de l'API Assistant Nouveaux Arrivants France")
+    
+    # Vérifier les variables d'environnement critiques
+    required_env_vars = ['API_TOKEN', 'BROWSER_AUTH', 'WEB_UNLOCKER_ZONE']
+    missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+    
+    if missing_vars:
+        logger.error(f"❌ Variables d'environnement manquantes: {', '.join(missing_vars)}")
+        logger.error("Veuillez configurer ces variables dans votre fichier .env ou dans les variables d'environnement Render")
+        exit(1)
+    
+    logger.info("✅ Toutes les variables d'environnement sont configurées")
+    
+    # Utiliser le port Render par défaut ou 8080 en local
     port = int(os.environ.get('PORT', 8080))
+    logger.info(f"🌐 Démarrage sur le port {port}")
+    
     app.run(host='0.0.0.0', debug=False, port=port) 

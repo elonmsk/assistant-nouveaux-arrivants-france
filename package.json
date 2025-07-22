@@ -1,0 +1,26 @@
+{
+  "name": "assistant-nouveaux-arrivants-france",
+  "version": "1.0.0",
+  "description": "Assistant pour nouveaux arrivants en France avec BrightData MCP",
+  "main": "app.py",
+  "scripts": {
+    "start": "python app.py",
+    "dev": "python app.py"
+  },
+  "dependencies": {
+    "@brightdata/mcp": "2.4.1"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "keywords": [
+    "assistant",
+    "france",
+    "nouveaux-arrivants",
+    "brightdata",
+    "mcp"
+  ],
+  "author": "Maxence",
+  "license": "MIT"
+} 
