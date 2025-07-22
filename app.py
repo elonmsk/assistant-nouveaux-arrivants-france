@@ -34,8 +34,12 @@ server_params = StdioServerParameters(
         "API_TOKEN": os.getenv("API_TOKEN"),
         "BROWSER_AUTH": os.getenv("BROWSER_AUTH"),
         "WEB_UNLOCKER_ZONE": os.getenv("WEB_UNLOCKER_ZONE"),
+        "NPM_CONFIG_LOGLEVEL": "silent",  # Logs npm complètement silencieux
+        "NPM_CONFIG_AUDIT": "false",      # Désactiver l'audit
+        "NPM_CONFIG_FUND": "false",       # Désactiver les messages de financement
+        "NPM_CONFIG_PROGRESS": "false",   # Désactiver la barre de progression
     },
-    args=["@brightdata/mcp@2.4.1"],
+    args=["--yes", "--silent", "--no-audit", "--no-fund", "--no-progress", "@brightdata/mcp@2.4.1"],
 )
 
 # Prompt système enrichi
