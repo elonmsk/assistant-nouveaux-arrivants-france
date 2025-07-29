@@ -61,28 +61,34 @@ CATEGORY_PROMPTS = {
         'description': 'Tu DOIS utiliser EXCLUSIVEMENT le site de référence prédéfini',
         'site_label': 'SITE UNIQUE AUTORISÉ',
         'procedure': [
-            'Utiliser DIRECTEMENT scrape_as_markdown sur le site de référence',
-            'Si besoin de navigation, utiliser scraping_browser_navigate sur ce site',
-            'Utiliser scraping_browser_click pour naviguer dans les sections',
-            'Utiliser scraping_browser_links() pour voir les éléments disponibles',
+            'OBLIGATOIRE : Commencer par scraping_browser_navigate sur le site de référence',
+            'Utiliser scraping_browser_links() pour identifier toutes les sections disponibles',
+            'Naviguer vers les sections pertinentes avec scraping_browser_click',
+            'Utiliser scrape_as_markdown sur les pages spécifiques trouvées',
+            'Explorer en profondeur : aides, formulaires, conditions d\'éligibilité',
             'INTERDIT : Utiliser search_engine ou d\'autres sites web'
         ],
         'workflow_example': {
             'question': 'Comment obtenir des aides au logement ?',
             'steps': [
-                'scrape_as_markdown(site_reference)',
-                'Si contenu insuffisant → scraping_browser_navigate(site_reference)',
-                'scraping_browser_links() pour voir les sections',
-                'Extraire les informations spécifiques aux aides',
-                'Répondre avec les détails trouvés'
+                'scraping_browser_navigate(site_reference) pour charger le site',
+                'scraping_browser_links() pour voir toutes les sections disponibles',
+                'Identifier les sections "Aides", "Logement", "Formulaires"',
+                'scraping_browser_click sur les liens pertinents',
+                'scrape_as_markdown sur chaque page explorée',
+                'Extraire les informations détaillées sur les aides',
+                'Répondre avec les détails trouvés et les liens directs'
             ]
         },
         'rules': [
-            'Utiliser UNIQUEMENT le site de référence',
-            'Ne pas chercher sur d\'autres sites',
+            'OBLIGATOIRE : Commencer par scraping_browser_navigate',
+            'Explorer TOUTES les sections pertinentes du site',
+            'Ne pas se contenter de la page d\'accueil',
+            'Chercher spécifiquement : aides, formulaires, conditions',
             'Extraire les informations détaillées sur les aides disponibles',
             'Donner les liens directs vers les formulaires d\'aide',
-            'Expliquer les conditions d\'éligibilité trouvées sur le site'
+            'Expliquer les conditions d\'éligibilité trouvées sur le site',
+            'Utiliser UNIQUEMENT le site de référence'
         ]
     }
 }
@@ -109,6 +115,8 @@ RÈGLES IMPORTANTES :
 6. Sois empathique et rassurant
 7. Donne des liens directs vers les formulaires, pages spécifiques, pas les pages d'accueil
 8. Indique le nom exact des documents à télécharger avec leurs URLs précises
+9. OBLIGATOIRE : Explore les sites en profondeur, ne te contente pas de la page d'accueil
+10. Utilise les outils de navigation pour trouver les informations spécifiques
 
 FORMAT MARKDOWN OBLIGATOIRE :
 - Utilise des titres avec # ## ### pour structurer
@@ -346,11 +354,11 @@ RÈGLES SPÉCIFIQUES {category.upper()} :
 """
                 for rule in rules:
                     category_prompt += f"- {rule}\n"
-        else:
-            # Configuration par défaut si pas de config spécifique
-            sites = REFERENCE_SITES[category]
-            sites_list = '\n'.join([f"- {site}" for site in sites])
-            category_prompt = f"""
+                 else:
+             # Configuration par défaut si pas de config spécifique
+             sites = REFERENCE_SITES[category]
+             sites_list = '\n'.join([f"- {site}" for site in sites])
+             category_prompt = f"""
 
 🎯 MÉTHODE SPÉCIFIQUE POUR {category.upper()} :
 Tu DOIS utiliser EXCLUSIVEMENT le(s) site(s) de référence prédéfini(s) :
@@ -359,18 +367,22 @@ SITE(S) AUTORISÉ(S) :
 {sites_list}
 
 PROCÉDURE OBLIGATOIRE :
-1. 📄 Utiliser DIRECTEMENT scrape_as_markdown sur le(s) site(s) de référence
-2. 🔍 Si besoin de navigation, utiliser scraping_browser_navigate sur ce(s) site(s)
-3. 🖱️ Utiliser scraping_browser_click pour naviguer dans les sections
-4. 📋 Utiliser scraping_browser_links() pour voir les éléments disponibles
-5. ❌ INTERDIT : Utiliser search_engine ou d'autres sites web
+1. 🌐 OBLIGATOIRE : Commencer par scraping_browser_navigate sur le(s) site(s) de référence
+2. 🔗 Utiliser scraping_browser_links() pour identifier toutes les sections disponibles
+3. 🖱️ Naviguer vers les sections pertinentes avec scraping_browser_click
+4. 📄 Utiliser scrape_as_markdown sur les pages spécifiques trouvées
+5. 🔍 Explorer en profondeur : chercher les sections aides, formulaires, conditions
+6. ❌ INTERDIT : Utiliser search_engine ou d'autres sites web
 
 RÈGLES SPÉCIFIQUES :
-- Utiliser UNIQUEMENT le(s) site(s) de référence
-- Ne pas chercher sur d'autres sites
+- OBLIGATOIRE : Commencer par scraping_browser_navigate
+- Explorer TOUTES les sections pertinentes du site
+- Ne pas se contenter de la page d'accueil
+- Chercher spécifiquement : aides, formulaires, conditions d'éligibilité
 - Extraire les informations détaillées disponibles
 - Donner les liens directs vers les formulaires
 - Expliquer les conditions trouvées sur le site
+- Utiliser UNIQUEMENT le(s) site(s) de référence
 """
     else:
         # Utiliser la méthode standard
