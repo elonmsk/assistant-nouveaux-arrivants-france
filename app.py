@@ -186,118 +186,99 @@ EXEMPLE WORKFLOW STANDARD :
 
 async def get_agent_response(user_message, context=None, category=None, max_retries=3):
     """Fonction pour obtenir la réponse de l'agent avec retry automatique"""
-    try:
-        # Vérifier la taille du message utilisateur
-        if len(user_message) > 10000:  # ~7500 tokens approximativement
-            return "❌ Votre message est trop long. Veuillez le raccourcir (maximum ~7500 tokens)."
-        
-        # Générer le prompt système selon la catégorie
-        system_prompt = generate_system_prompt(category)
-        
-        for attempt in range(max_retries):
-            try:
-                async with stdio_client(server_params) as (read, write):
-                    async with ClientSession(read, write) as session:
-                        try:
-                            await session.initialize()
-                            tools = await load_mcp_tools(session)
-                            agent = create_react_agent(model, tools)
+    # Vérifier la taille du message utilisateur
+    if len(user_message) > 10000:  # ~7500 tokens approximativement
+        return "❌ Votre message est trop long. Veuillez le raccourcir (maximum ~7500 tokens)."
+    
+    # Générer le prompt système selon la catégorie
+    system_prompt = generate_system_prompt(category)
+    
+    for attempt in range(max_retries):
+        try:
+            async with stdio_client(server_params) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    tools = await load_mcp_tools(session)
+                    agent = create_react_agent(model, tools)
 
-                            # Messages avec prompt système dynamique
-                            messages = [
-                                {"role": "system", "content": system_prompt}
-                            ]
-                            
-                            # Ajouter le contexte si fourni
-                            if context:
-                                messages.append({"role": "system", "content": f"Contexte supplémentaire : {context}"})
-                            
-                            messages.append({"role": "user", "content": user_message})
-
-                            # Log de la taille approximative des tokens
-                            total_chars = sum(len(msg["content"]) for msg in messages)
-                            estimated_tokens = total_chars // 4  # Approximation : 4 chars = 1 token
-                            logger.info(f"📊 Estimation tokens input: ~{estimated_tokens}")
-
-                            # Appel de l'agent
-                            agent_response = await agent.ainvoke({"messages": messages})
-                            
-                            # Extraction de la réponse
-                            ai_message = agent_response["messages"][-1].content
-                            
-                            # Log de la taille de la réponse
-                            response_tokens = len(ai_message) // 4
-                            logger.info(f"📊 Estimation tokens output: ~{response_tokens}")
-                            
-                            return ai_message
+                    # Messages avec prompt système dynamique
+                    messages = [
+                        {"role": "system", "content": system_prompt}
+                    ]
                     
-                except Exception as mcp_error:
-                    logger.error(f"Erreur MCP: {str(mcp_error)}")
-                    error_msg = str(mcp_error).lower()
+                    # Ajouter le contexte si fourni
+                    if context:
+                        messages.append({"role": "system", "content": f"Contexte supplémentaire : {context}"})
                     
-                    if "List roots not supported" in str(mcp_error):
-                        return "❌ Erreur de configuration MCP. Le serveur BrightData n'est pas compatible avec cette version. Veuillez contacter l'administrateur."
-                    elif "529" in str(mcp_error) or "overloaded" in error_msg:
-                        if attempt < max_retries - 1:
-                            wait_time = (attempt + 1) * 2  # 2s, 4s, 6s
-                            logger.warning(f"⚠️ Service surchargé (tentative {attempt + 1}/{max_retries}), attente de {wait_time}s...")
-                            await asyncio.sleep(wait_time)
-                            continue
-                        else:
-                            return "❌ Service temporairement surchargé. Le service de recherche web est actuellement très sollicité. Veuillez réessayer dans quelques minutes."
-                    elif "rate" in error_msg or "limit" in error_msg:
-                        if attempt < max_retries - 1:
-                            wait_time = (attempt + 1) * 1  # 1s, 2s, 3s
-                            logger.warning(f"⚠️ Rate limit atteint (tentative {attempt + 1}/{max_retries}), attente de {wait_time}s...")
-                            await asyncio.sleep(wait_time)
-                            continue
-                        else:
-                            return "❌ Limite de requêtes atteinte. Trop de demandes simultanées. Veuillez patienter quelques secondes et réessayer."
-                    else:
-                        raise mcp_error
-                        
-                # Si on arrive ici, la tentative a réussi
-                break
-                
-            except Exception as e:
+                    messages.append({"role": "user", "content": user_message})
+
+                    # Log de la taille approximative des tokens
+                    total_chars = sum(len(msg["content"]) for msg in messages)
+                    estimated_tokens = total_chars // 4  # Approximation : 4 chars = 1 token
+                    logger.info(f"📊 Estimation tokens input: ~{estimated_tokens}")
+
+                    # Appel de l'agent
+                    agent_response = await agent.ainvoke({"messages": messages})
+                    
+                    # Extraction de la réponse
+                    ai_message = agent_response["messages"][-1].content
+                    
+                    # Log de la taille de la réponse
+                    response_tokens = len(ai_message) // 4
+                    logger.info(f"📊 Estimation tokens output: ~{response_tokens}")
+                    
+                    return ai_message
+                    
+        except Exception as e:
+            error_msg = str(e).lower()
+            logger.error(f"Erreur MCP (tentative {attempt + 1}/{max_retries}): {str(e)}")
+            
+            # Gestion des erreurs spécifiques
+            if "List roots not supported" in str(e):
+                return "❌ Erreur de configuration MCP. Le serveur BrightData n'est pas compatible avec cette version. Veuillez contacter l'administrateur."
+            
+            elif "529" in str(e) or "overloaded" in error_msg:
                 if attempt < max_retries - 1:
-                    logger.warning(f"⚠️ Tentative {attempt + 1}/{max_retries} échouée: {str(e)}")
-                    await asyncio.sleep(1)  # Attendre 1s entre les tentatives
+                    wait_time = (attempt + 1) * 2  # 2s, 4s, 6s
+                    logger.warning(f"⚠️ Service surchargé (tentative {attempt + 1}/{max_retries}), attente de {wait_time}s...")
+                    await asyncio.sleep(wait_time)
                     continue
                 else:
-                    # Dernière tentative échouée
-                    import traceback
-                    logger.error(f"Erreur dans get_agent_response après {max_retries} tentatives: {str(e)}\n{traceback.format_exc()}")
-                    error_msg = str(e).lower()
-                    if "tokens" in error_msg or "context" in error_msg or "limit" in error_msg:
-                        logger.error(f"❌ Erreur de tokens: {str(e)}")
-                        return f"❌ Limite de tokens atteinte. Essayez une question plus courte ou plus spécifique.\n\nDétails: {str(e)}"
-                    elif "rate" in error_msg or "529" in error_msg:
-                        logger.error(f"❌ Erreur de rate limiting: {str(e)}")
-                        return f"❌ Trop de requêtes simultanées. Veuillez patienter quelques secondes et réessayer.\n\nDétails: {str(e)}"
-                    elif "mcp" in error_msg or "brightdata" in error_msg:
-                        logger.error(f"❌ Erreur MCP/BrightData: {str(e)}")
-                        return f"❌ Erreur de configuration des outils de recherche web. Veuillez réessayer dans quelques instants.\n\nDétails: {str(e)}"
-                    else:
-                        logger.error(f"Erreur dans get_agent_response: {str(e)}")
-                        return f"❌ Erreur lors du traitement de votre demande : {str(e)}\n\nVeuillez vérifier que vos clés API sont correctement configurées dans le fichier .env"
-                
-    except Exception as e:
-        import traceback
-        logger.error(f"Erreur dans get_agent_response: {str(e)}\n{traceback.format_exc()}")
-        error_msg = str(e).lower()
-        if "tokens" in error_msg or "context" in error_msg or "limit" in error_msg:
-            logger.error(f"❌ Erreur de tokens: {str(e)}")
-            return f"❌ Limite de tokens atteinte. Essayez une question plus courte ou plus spécifique.\n\nDétails: {str(e)}"
-        elif "rate" in error_msg or "529" in error_msg:
-            logger.error(f"❌ Erreur de rate limiting: {str(e)}")
-            return f"❌ Trop de requêtes simultanées. Veuillez patienter quelques secondes et réessayer.\n\nDétails: {str(e)}"
-        elif "mcp" in error_msg or "brightdata" in error_msg:
-            logger.error(f"❌ Erreur MCP/BrightData: {str(e)}")
-            return f"❌ Erreur de configuration des outils de recherche web. Veuillez réessayer dans quelques instants.\n\nDétails: {str(e)}"
-        else:
-            logger.error(f"Erreur dans get_agent_response: {str(e)}")
-            return f"❌ Erreur lors du traitement de votre demande : {str(e)}\n\nVeuillez vérifier que vos clés API sont correctement configurées dans le fichier .env"
+                    return "❌ Service temporairement surchargé. Le service de recherche web est actuellement très sollicité. Veuillez réessayer dans quelques minutes."
+            
+            elif "rate" in error_msg or "limit" in error_msg:
+                if attempt < max_retries - 1:
+                    wait_time = (attempt + 1) * 1  # 1s, 2s, 3s
+                    logger.warning(f"⚠️ Rate limit atteint (tentative {attempt + 1}/{max_retries}), attente de {wait_time}s...")
+                    await asyncio.sleep(wait_time)
+                    continue
+                else:
+                    return "❌ Limite de requêtes atteinte. Trop de demandes simultanées. Veuillez patienter quelques secondes et réessayer."
+            
+            elif "tokens" in error_msg or "context" in error_msg:
+                logger.error(f"❌ Erreur de tokens: {str(e)}")
+                return f"❌ Limite de tokens atteinte. Essayez une question plus courte ou plus spécifique.\n\nDétails: {str(e)}"
+            
+            elif "mcp" in error_msg or "brightdata" in error_msg:
+                if attempt < max_retries - 1:
+                    logger.warning(f"⚠️ Erreur MCP/BrightData (tentative {attempt + 1}/{max_retries}), nouvelle tentative...")
+                    await asyncio.sleep(1)
+                    continue
+                else:
+                    logger.error(f"❌ Erreur MCP/BrightData: {str(e)}")
+                    return f"❌ Erreur de configuration des outils de recherche web. Veuillez réessayer dans quelques instants.\n\nDétails: {str(e)}"
+            
+            else:
+                if attempt < max_retries - 1:
+                    logger.warning(f"⚠️ Erreur inconnue (tentative {attempt + 1}/{max_retries}), nouvelle tentative...")
+                    await asyncio.sleep(1)
+                    continue
+                else:
+                    logger.error(f"Erreur dans get_agent_response: {str(e)}")
+                    return f"❌ Erreur lors du traitement de votre demande : {str(e)}\n\nVeuillez vérifier que vos clés API sont correctement configurées dans le fichier .env"
+    
+    # Si on arrive ici, toutes les tentatives ont échoué
+    return "❌ Impossible de traiter votre demande après plusieurs tentatives. Veuillez réessayer plus tard."
 
 def get_category_info(category_id):
     """Récupère les informations d'une catégorie par son ID"""
