@@ -339,7 +339,7 @@ PROCÉDURE OBLIGATOIRE :
             if workflow:
                 category_prompt += f"""
 EXEMPLE WORKFLOW {category.upper()} :
-- Question: "{workflow.get('question', 'Comment obtenir de l\'aide ?')}"
+- Question: "{workflow.get('question', 'Comment obtenir de l aide ?')}"
 """
                 for i, step in enumerate(workflow.get('steps', []), 1):
                     # Remplacer les placeholders par les vrais sites
@@ -354,11 +354,11 @@ RÈGLES SPÉCIFIQUES {category.upper()} :
 """
                 for rule in rules:
                     category_prompt += f"- {rule}\n"
-                 else:
-             # Configuration par défaut si pas de config spécifique
-             sites = REFERENCE_SITES[category]
-             sites_list = '\n'.join([f"- {site}" for site in sites])
-             category_prompt = f"""
+        else:
+            # Configuration par défaut si pas de config spécifique
+            sites = REFERENCE_SITES[category]
+            sites_list = '\n'.join([f"- {site}" for site in sites])
+            category_prompt = f"""
 
 🎯 MÉTHODE SPÉCIFIQUE POUR {category.upper()} :
 Tu DOIS utiliser EXCLUSIVEMENT le(s) site(s) de référence prédéfini(s) :
