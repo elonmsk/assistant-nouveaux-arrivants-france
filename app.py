@@ -42,8 +42,53 @@ server_params = StdioServerParameters(
     args=["--yes", "--silent", "--no-audit", "--no-fund", "--no-progress", "@brightdata/mcp@2.4.1"],
 )
 
-# Prompt système enrichi
-SYSTEM_PROMPT = """Tu es un assistant spécialisé dans l'aide aux nouveaux arrivants en France. 
+# Configuration des sites de référence par thématique
+REFERENCE_SITES = {
+    'logement': ['https://www.actionlogement.fr/'],
+    'sante': [],  # À définir
+    'administratif': [],  # À définir
+    'juridique': [],  # À définir
+    'emploi': [],  # À définir
+    'education': [],  # À définir
+    'transport': [],  # À définir
+    'finances': []  # À définir
+}
+
+# Configuration des prompts par catégorie
+CATEGORY_PROMPTS = {
+    'logement': {
+        'title': '🏠 MÉTHODE SPÉCIFIQUE POUR LE LOGEMENT',
+        'description': 'Tu DOIS utiliser EXCLUSIVEMENT le site de référence prédéfini',
+        'site_label': 'SITE UNIQUE AUTORISÉ',
+        'procedure': [
+            'Utiliser DIRECTEMENT scrape_as_markdown sur le site de référence',
+            'Si besoin de navigation, utiliser scraping_browser_navigate sur ce site',
+            'Utiliser scraping_browser_click pour naviguer dans les sections',
+            'Utiliser scraping_browser_links() pour voir les éléments disponibles',
+            'INTERDIT : Utiliser search_engine ou d\'autres sites web'
+        ],
+        'workflow_example': {
+            'question': 'Comment obtenir des aides au logement ?',
+            'steps': [
+                'scrape_as_markdown(site_reference)',
+                'Si contenu insuffisant → scraping_browser_navigate(site_reference)',
+                'scraping_browser_links() pour voir les sections',
+                'Extraire les informations spécifiques aux aides',
+                'Répondre avec les détails trouvés'
+            ]
+        },
+        'rules': [
+            'Utiliser UNIQUEMENT le site de référence',
+            'Ne pas chercher sur d\'autres sites',
+            'Extraire les informations détaillées sur les aides disponibles',
+            'Donner les liens directs vers les formulaires d\'aide',
+            'Expliquer les conditions d\'éligibilité trouvées sur le site'
+        ]
+    }
+}
+
+# Prompt de base réutilisable
+BASE_PROMPT = """Tu es un assistant spécialisé dans l'aide aux nouveaux arrivants en France. 
 
 Tu aides les personnes qui viennent d'arriver sur diverses thématiques :
 - 🏥 Santé (sécurité sociale, médecins, urgences)
@@ -55,52 +100,15 @@ Tu aides les personnes qui viennent d'arriver sur diverses thématiques :
 - 🚗 Transport (permis de conduire, transports en commun)
 - 💰 Finances (banques, impôts, aides sociales)
 
-MÉTHODE DE RECHERCHE OBLIGATOIRE :
-1. 🔍 TOUJOURS commencer par search_engine pour trouver les URLs pertinentes
-2. 📄 ENSUITE utiliser scrape_as_markdown sur les URLs officielles trouvées
-3. 🎯 Priorité aux sites : service-public.fr, ameli.fr, pole-emploi.fr, caf.fr, etc.
-4. 📋 Si scrape_as_markdown échoue, utiliser scrape_as_html ou extract
-5. ✅ OBLIGATOIRE : Récupérer le contenu COMPLET des pages, pas juste les résultats de recherche
-
-STRATÉGIE POUR SITES DYNAMIQUES :
-Si scrape_as_markdown/scrape_as_html échouent ou retournent peu de contenu :
-1. 🌐 Utiliser scraping_browser_navigate(URL) pour charger la page avec JavaScript
-2. ⏱️ Attendre que le contenu se charge (les outils attendent automatiquement)
-3. 🔗 Utiliser scraping_browser_links() pour voir les éléments interactifs
-4. 🖱️ Si nécessaire, utiliser scraping_browser_click(selector) pour interactions
-5. 📱 Ces outils gèrent : JavaScript, React, Vue, Angular, contenu dynamique
-
-SITES PROBLÉMATIQUES COURANTS :
-- Sites gouvernementaux avec JavaScript : utiliser scraping_browser_navigate
-- Formulaires dynamiques : scraping_browser_click pour navigation
-- Contenu chargé par AJAX : les outils navigateur attendent le chargement
-- Sites avec authentification : scraping_browser peut gérer les cookies
-
 RÈGLES IMPORTANTES :
 1. Réponds toujours en français, de manière claire et accessible
-2. WORKFLOW OBLIGATOIRE : search_engine → scrape_as_markdown → (si échec: scraping_browser_navigate) → réponse structurée
-3. OBLIGATOIRE : Cite TOUJOURS tes sources à la fin de chaque réponse
-4. OBLIGATOIRE : Formate ta réponse en Markdown structuré et propre
-5. Propose des actions concrètes et des liens SPÉCIFIQUES (pas génériques)
-6. Donne des informations DÉTAILLÉES extraites du contenu scraped
-7. Sois empathique et rassurant
-8. Donne des liens directs vers les formulaires, pages spécifiques, pas les pages d'accueil
-9. Indique le nom exact des documents à télécharger avec leurs URLs précises
-
-EXEMPLE DE WORKFLOW :
-- Question: "Comment obtenir une carte vitale ?"
-- Étape 1: search_engine("carte vitale obtenir France")
-- Étape 2: scrape_as_markdown(https://www.service-public.fr/particuliers/vosdroits/F750)
-- Étape 3: Si peu de contenu → scraping_browser_navigate(URL) pour JavaScript
-- Étape 4: Extraire les informations détaillées et formater la réponse
-
-EXEMPLE SITE DYNAMIQUE :
-- Question: "Comment s'inscrire sur Parcoursup ?"
-- Étape 1: search_engine("Parcoursup inscription étapes")
-- Étape 2: scrape_as_markdown échoue (site React)
-- Étape 3: scraping_browser_navigate(https://www.parcoursup.fr)
-- Étape 4: scraping_browser_links() pour voir les sections
-- Étape 5: Extraire le contenu complet et répondre
+2. OBLIGATOIRE : Cite TOUJOURS tes sources à la fin de chaque réponse
+3. OBLIGATOIRE : Formate ta réponse en Markdown structuré et propre
+4. Propose des actions concrètes et des liens SPÉCIFIQUES (pas génériques)
+5. Donne des informations DÉTAILLÉES extraites du contenu scraped
+6. Sois empathique et rassurant
+7. Donne des liens directs vers les formulaires, pages spécifiques, pas les pages d'accueil
+8. Indique le nom exact des documents à télécharger avec leurs URLs précises
 
 FORMAT MARKDOWN OBLIGATOIRE :
 - Utilise des titres avec # ## ### pour structurer
@@ -142,12 +150,41 @@ EXEMPLES de bons liens :
 ❌ Éviter : service-public.fr (trop générique)
 """
 
-async def get_agent_response(user_message, context=None):
+# Prompt pour méthode standard
+STANDARD_METHOD_PROMPT = """
+
+MÉTHODE DE RECHERCHE STANDARD (pour les autres thématiques) :
+1. 🔍 TOUJOURS commencer par search_engine pour trouver les URLs pertinentes
+2. 📄 ENSUITE utiliser scrape_as_markdown sur les URLs officielles trouvées
+3. 🎯 Priorité aux sites : service-public.fr, ameli.fr, pole-emploi.fr, caf.fr, etc.
+4. 📋 Si scrape_as_markdown échoue, utiliser scrape_as_html ou extract
+5. ✅ OBLIGATOIRE : Récupérer le contenu COMPLET des pages, pas juste les résultats de recherche
+
+STRATÉGIE POUR SITES DYNAMIQUES :
+Si scrape_as_markdown/scrape_as_html échouent ou retournent peu de contenu :
+1. 🌐 Utiliser scraping_browser_navigate(URL) pour charger la page avec JavaScript
+2. ⏱️ Attendre que le contenu se charge (les outils attendent automatiquement)
+3. 🔗 Utiliser scraping_browser_links() pour voir les éléments interactifs
+4. 🖱️ Si nécessaire, utiliser scraping_browser_click(selector) pour interactions
+5. 📱 Ces outils gèrent : JavaScript, React, Vue, Angular, contenu dynamique
+
+EXEMPLE WORKFLOW STANDARD :
+- Question: "Comment obtenir une carte vitale ?"
+- Étape 1: search_engine("carte vitale obtenir France")
+- Étape 2: scrape_as_markdown(https://www.service-public.fr/particuliers/vosdroits/F750)
+- Étape 3: Si peu de contenu → scraping_browser_navigate(URL) pour JavaScript
+- Étape 4: Extraire les informations détaillées et formater la réponse
+"""
+
+async def get_agent_response(user_message, context=None, category=None):
     """Fonction pour obtenir la réponse de l'agent"""
     try:
         # Vérifier la taille du message utilisateur
         if len(user_message) > 10000:  # ~7500 tokens approximativement
             return "❌ Votre message est trop long. Veuillez le raccourcir (maximum ~7500 tokens)."
+        
+        # Générer le prompt système selon la catégorie
+        system_prompt = generate_system_prompt(category)
         
         async with stdio_client(server_params) as (read, write):
             async with ClientSession(read, write) as session:
@@ -156,9 +193,9 @@ async def get_agent_response(user_message, context=None):
                     tools = await load_mcp_tools(session)
                     agent = create_react_agent(model, tools)
 
-                    # Messages avec prompt système
+                    # Messages avec prompt système dynamique
                     messages = [
-                        {"role": "system", "content": SYSTEM_PROMPT}
+                        {"role": "system", "content": system_prompt}
                     ]
                     
                     # Ajouter le contexte si fourni
@@ -208,6 +245,160 @@ async def get_agent_response(user_message, context=None):
             logger.error(f"Erreur dans get_agent_response: {str(e)}")
             return f"❌ Erreur lors du traitement de votre demande : {str(e)}\n\nVeuillez vérifier que vos clés API sont correctement configurées dans le fichier .env"
 
+def get_category_info(category_id):
+    """Récupère les informations d'une catégorie par son ID"""
+    categories = {
+        'sante': {
+            'id': 'sante',
+            'name': '🏥 Santé',
+            'description': 'Sécurité sociale, médecins, urgences, carte vitale',
+            'reference_sites': REFERENCE_SITES.get('sante', [])
+        },
+        'logement': {
+            'id': 'logement',
+            'name': '🏠 Logement',
+            'description': 'Recherche, droits, aides au logement, CAF',
+            'reference_sites': REFERENCE_SITES.get('logement', [])
+        },
+        'administratif': {
+            'id': 'administratif',
+            'name': '📋 Administratif',
+            'description': 'Cartes d\'identité, permis, inscriptions officielles',
+            'reference_sites': REFERENCE_SITES.get('administratif', [])
+        },
+        'juridique': {
+            'id': 'juridique',
+            'name': '⚖️ Juridique',
+            'description': 'Droits, démarches légales, recours',
+            'reference_sites': REFERENCE_SITES.get('juridique', [])
+        },
+        'emploi': {
+            'id': 'emploi',
+            'name': '💼 Emploi',
+            'description': 'Recherche d\'emploi, formations, droits du travail',
+            'reference_sites': REFERENCE_SITES.get('emploi', [])
+        },
+        'education': {
+            'id': 'education',
+            'name': '🎓 Éducation',
+            'description': 'Inscriptions scolaires, universités, formations',
+            'reference_sites': REFERENCE_SITES.get('education', [])
+        },
+        'transport': {
+            'id': 'transport',
+            'name': '🚗 Transport',
+            'description': 'Permis de conduire, transports en commun',
+            'reference_sites': REFERENCE_SITES.get('transport', [])
+        },
+        'finances': {
+            'id': 'finances',
+            'name': '💰 Finances',
+            'description': 'Banques, impôts, aides sociales',
+            'reference_sites': REFERENCE_SITES.get('finances', [])
+        }
+    }
+    return categories.get(category_id)
+
+def generate_system_prompt(category=None):
+    """Génère le prompt système selon la catégorie"""
+    # Utiliser le prompt de base
+    prompt = BASE_PROMPT
+    
+    # Vérifier si la catégorie a des sites de référence
+    if category and category in REFERENCE_SITES and REFERENCE_SITES[category]:
+        # Générer le prompt spécifique à la catégorie
+        category_config = CATEGORY_PROMPTS.get(category, {})
+        if category_config:
+            sites = REFERENCE_SITES[category]
+            sites_list = '\n'.join([f"- {site}" for site in sites])
+            
+            category_prompt = f"""
+
+{category_config.get('title', f'🎯 MÉTHODE SPÉCIFIQUE POUR {category.upper()}')} :
+{category_config.get('description', 'Tu DOIS utiliser EXCLUSIVEMENT le(s) site(s) de référence prédéfini(s)')} :
+
+{category_config.get('site_label', 'SITE(S) AUTORISÉ(S)')} :
+{sites_list}
+
+PROCÉDURE OBLIGATOIRE :
+"""
+            # Ajouter les étapes de procédure
+            for i, step in enumerate(category_config.get('procedure', []), 1):
+                category_prompt += f"{i}. 📄 {step}\n"
+            
+            # Ajouter l'exemple de workflow
+            workflow = category_config.get('workflow_example', {})
+            if workflow:
+                category_prompt += f"""
+EXEMPLE WORKFLOW {category.upper()} :
+- Question: "{workflow.get('question', 'Comment obtenir de l\'aide ?')}"
+"""
+                for i, step in enumerate(workflow.get('steps', []), 1):
+                    # Remplacer les placeholders par les vrais sites
+                    step = step.replace('site_reference', sites[0] if sites else 'URL_du_site')
+                    category_prompt += f"- Étape {i}: {step}\n"
+            
+            # Ajouter les règles spécifiques
+            rules = category_config.get('rules', [])
+            if rules:
+                category_prompt += f"""
+RÈGLES SPÉCIFIQUES {category.upper()} :
+"""
+                for rule in rules:
+                    category_prompt += f"- {rule}\n"
+        else:
+            # Configuration par défaut si pas de config spécifique
+            sites = REFERENCE_SITES[category]
+            sites_list = '\n'.join([f"- {site}" for site in sites])
+            category_prompt = f"""
+
+🎯 MÉTHODE SPÉCIFIQUE POUR {category.upper()} :
+Tu DOIS utiliser EXCLUSIVEMENT le(s) site(s) de référence prédéfini(s) :
+
+SITE(S) AUTORISÉ(S) :
+{sites_list}
+
+PROCÉDURE OBLIGATOIRE :
+1. 📄 Utiliser DIRECTEMENT scrape_as_markdown sur le(s) site(s) de référence
+2. 🔍 Si besoin de navigation, utiliser scraping_browser_navigate sur ce(s) site(s)
+3. 🖱️ Utiliser scraping_browser_click pour naviguer dans les sections
+4. 📋 Utiliser scraping_browser_links() pour voir les éléments disponibles
+5. ❌ INTERDIT : Utiliser search_engine ou d'autres sites web
+
+RÈGLES SPÉCIFIQUES :
+- Utiliser UNIQUEMENT le(s) site(s) de référence
+- Ne pas chercher sur d'autres sites
+- Extraire les informations détaillées disponibles
+- Donner les liens directs vers les formulaires
+- Expliquer les conditions trouvées sur le site
+"""
+    else:
+        # Utiliser la méthode standard
+        category_prompt = STANDARD_METHOD_PROMPT
+    
+    return prompt + category_prompt
+
+def add_reference_sites(category, sites):
+    """Ajoute des sites de référence pour une catégorie"""
+    if category not in REFERENCE_SITES:
+        REFERENCE_SITES[category] = []
+    REFERENCE_SITES[category].extend(sites)
+
+def add_category_prompt(category, config):
+    """Ajoute une configuration de prompt pour une catégorie"""
+    CATEGORY_PROMPTS[category] = config
+
+def get_available_categories():
+    """Retourne la liste des catégories disponibles avec leurs sites de référence"""
+    return {
+        category: {
+            'info': get_category_info(category),
+            'reference_sites': REFERENCE_SITES.get(category, []),
+            'has_custom_prompt': category in CATEGORY_PROMPTS
+        }
+        for category in ['sante', 'logement', 'administratif', 'juridique', 'emploi', 'education', 'transport', 'finances']
+    }
+
 # ============ ROUTES WEB ============
 
 @app.route('/')
@@ -251,23 +442,32 @@ def api_chat():
             
         user_message = data.get('message', '').strip()
         context = data.get('context', '')
+        category = data.get('category', '')
         
         if not user_message:
             return jsonify({'error': 'Le champ "message" est requis et ne peut pas être vide'}), 400
         
         # Log de la requête
-        logger.info(f"Nouvelle requête chat: {user_message[:100]}...")
+        logger.info(f"Nouvelle requête chat: {user_message[:100]}... (catégorie: {category})")
+        
+        # Construire le contexte enrichi avec la catégorie
+        enriched_context = context
+        if category:
+            category_info = get_category_info(category)
+            if category_info:
+                enriched_context = f"Catégorie: {category_info['name']} - {category_info['description']}\n{context}".strip()
         
         # Exécution asynchrone
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
-            response = loop.run_until_complete(get_agent_response(user_message, context))
+            response = loop.run_until_complete(get_agent_response(user_message, enriched_context, category))
             
             return jsonify({
                 'success': True,
                 'response': response,
-                'timestamp': datetime.now().isoformat()
+                'timestamp': datetime.now().isoformat(),
+                'category': category
             })
         finally:
             loop.close()
@@ -283,46 +483,14 @@ def api_chat():
 def api_categories():
     """Endpoint pour obtenir les catégories d'aide disponibles"""
     categories = [
-        {
-            'id': 'sante',
-            'name': '🏥 Santé',
-            'description': 'Sécurité sociale, médecins, urgences, carte vitale'
-        },
-        {
-            'id': 'logement',
-            'name': '🏠 Logement',
-            'description': 'Recherche, droits, aides au logement, CAF'
-        },
-        {
-            'id': 'administratif',
-            'name': '📋 Administratif',
-            'description': 'Cartes d\'identité, permis, inscriptions officielles'
-        },
-        {
-            'id': 'juridique',
-            'name': '⚖️ Juridique',
-            'description': 'Droits, démarches légales, recours'
-        },
-        {
-            'id': 'emploi',
-            'name': '💼 Emploi',
-            'description': 'Recherche d\'emploi, formations, droits du travail'
-        },
-        {
-            'id': 'education',
-            'name': '🎓 Éducation',
-            'description': 'Inscriptions scolaires, universités, formations'
-        },
-        {
-            'id': 'transport',
-            'name': '🚗 Transport',
-            'description': 'Permis de conduire, transports en commun'
-        },
-        {
-            'id': 'finances',
-            'name': '💰 Finances',
-            'description': 'Banques, impôts, aides sociales'
-        }
+        get_category_info('sante'),
+        get_category_info('logement'),
+        get_category_info('administratif'),
+        get_category_info('juridique'),
+        get_category_info('emploi'),
+        get_category_info('education'),
+        get_category_info('transport'),
+        get_category_info('finances')
     ]
     
     return jsonify({
@@ -345,17 +513,24 @@ def api_help():
             'description': 'Envoyer un message à l\'assistant',
             'parameters': {
                 'message': 'string (requis) - Votre question',
-                'context': 'string (optionnel) - Contexte supplémentaire'
+                'context': 'string (optionnel) - Contexte supplémentaire',
+                'category': 'string (optionnel) - Catégorie thématique (sante, logement, administratif, juridique, emploi, education, transport, finances)'
             },
             'example': {
-                'message': 'Comment obtenir une carte vitale ?',
-                'context': 'Je viens d\'arriver d\'Allemagne'
+                'message': 'Comment obtenir des aides au logement en tant que réfugié syrien ?',
+                'context': 'Personne ayant obtenu le statut de réfugié ou protection internationale',
+                'category': 'logement'
             }
         },
         {
             'endpoint': '/api/categories',
             'method': 'GET',
             'description': 'Obtenir la liste des catégories d\'aide disponibles'
+        },
+        {
+            'endpoint': '/api/reference-sites',
+            'method': 'GET',
+            'description': 'Obtenir la configuration des sites de référence par catégorie'
         }
     ]
     
@@ -363,6 +538,16 @@ def api_help():
         'service': 'API Assistant Nouveaux Arrivants France',
         'version': '1.0.0',
         'endpoints': endpoints
+    })
+
+@app.route('/api/reference-sites', methods=['GET'])
+def api_reference_sites():
+    """Endpoint pour obtenir la configuration des sites de référence"""
+    return jsonify({
+        'success': True,
+        'reference_sites': REFERENCE_SITES,
+        'category_prompts': list(CATEGORY_PROMPTS.keys()),
+        'categories': get_available_categories()
     })
 
 # ============ COMPATIBILITÉ ANCIENNE API ============
@@ -379,7 +564,7 @@ def chat():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
-        response = loop.run_until_complete(get_agent_response(user_message))
+        response = loop.run_until_complete(get_agent_response(user_message, category=None))
         return jsonify({'response': response})
     finally:
         loop.close()
